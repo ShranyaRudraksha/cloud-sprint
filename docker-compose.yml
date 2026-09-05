@@ -1,0 +1,16 @@
+# docker-compose.yml
+version: "3.8"
+services:
+  db:
+    image: postgres:16
+    container_name: cloudsprint-db
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: cloudsprint
+    ports:
+      - "5432:5432"
+    volumes:
+      - cloudsprint-db-data:/var/lib/postgresql/data
+
+volumes:
+  cloudsprint-db-data:

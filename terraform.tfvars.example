@@ -1,0 +1,12 @@
+aws_region    = "ap-south-1"
+instance_type = "t3.micro"
+ami_id        = "ami-xxxxxxxxxxxxxxxxx"
+key_name      = "your-ec2-key-pair-name"
+bucket_name   = "your-globally-unique-bucket-name"
+
+iam_user_name   = "cloudsprint-app-user"
+iam_policy_arn  = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+iam_role_name = "cloudsprint-ec2-role"
+vpc_cidr          = "10.0.0.0/16"
+subnet_cidr       = "10.0.1.0/24"
+availability_zone = "ap-south-1a"

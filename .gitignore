@@ -1,0 +1,27 @@
+# Secrets
+.env
+*.pem
+*.key
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Frontend build output
+cloudsprint-frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
