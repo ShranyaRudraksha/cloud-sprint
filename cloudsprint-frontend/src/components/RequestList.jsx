@@ -1,13 +1,32 @@
-import { FaServer, FaBoxOpen, FaUserShield, FaCheck, FaTimes, FaTrashAlt, FaInbox } from "react-icons/fa";
-import { decideRequest, teardownRequest } from "../api/requests";
+import { Fragment, useEffect, useState } from "react";
+import { FaServer, FaBoxOpen, FaUserShield, FaNetworkWired, FaCheck, FaTimes, FaTrashAlt, FaInbox, FaTerminal, FaChevronDown, FaChevronRight } from "react-icons/fa";
+import { decideRequest, teardownRequest, getOrgAdmins } from "../api/requests";
 import StatusBadge from "./StatusBadge";
+import RequestConsole from "./RequestConsole";
+import RequestTracker from "./RequestTracker";
+import { formatDateTime } from "../utils/formatDate";
 
-const TYPE_ICON = { ec2: FaServer, s3: FaBoxOpen, iam: FaUserShield };
+const TYPE_ICON = { ec2: FaServer, s3: FaBoxOpen, iam: FaUserShield, vpc: FaNetworkWired };
+const HAS_CONSOLE_OUTPUT = ["provisioning", "active", "failed", "destroying", "destroyed", "teardown_failed"];
 
 export default function RequestList({ requests, onChanged, isAdmin, currentUser }) {
+  const [expanded, setExpanded] = useState(new Set());
+  const [orgAdmins, setOrgAdmins] = useState([]);
+
+  useEffect(() => { getOrgAdmins().then(setOrgAdmins).catch(() => {}); }, []);
+
   const approve = async (id) => { await decideRequest(id, "approved", currentUser.name); onChanged(); };
-  const reject = async (id) => { await decideRequest(id, "rejected", currentUser.name, "Rejected via dashboard"); onChanged(); };
+  const reject = async (id) => {
+    const remarks = window.prompt("Reason for rejection (the requester will see this):", "") || "No reason provided";
+    await decideRequest(id, "rejected", currentUser.name, remarks);
+    onChanged();
+  };
   const teardown = async (id) => { await teardownRequest(id, currentUser.name); onChanged(); };
+  const toggleConsole = (id) => setExpanded(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   if (requests.length === 0) {
     return (
@@ -31,29 +50,52 @@ export default function RequestList({ requests, onChanged, isAdmin, currentUser 
         <tbody>
           {requests.map(r => {
             const Icon = TYPE_ICON[r.resource_type] || FaServer;
+            const isOwnerOrAdmin = isAdmin || r.user_id === currentUser.id;
+            const showConsole = HAS_CONSOLE_OUTPUT.includes(r.status) && isOwnerOrAdmin;
+            const isOpen = expanded.has(r.id);
             return (
-              <tr key={r.id}>
-                <td>#{r.id}</td>
-                <td>{r.requester_name}</td>
-                <td>
-                  <span className="resource-tag">
-                    <span className="r-icon"><Icon /></span> {r.resource_type.toUpperCase()}
-                  </span>
-                </td>
-                <td><StatusBadge status={r.status} /></td>
-                <td>{new Date(r.created_at).toLocaleString()}</td>
-                <td>
-                  {r.status === "pending" && isAdmin &&(
-                    <>
-                      <button className="btn btn-approve" onClick={() => approve(r.id)}><FaCheck /> Approve</button>
-                      <button className="btn btn-reject" onClick={() => reject(r.id)}><FaTimes /> Reject</button>
-                    </>
-                  )}
-                  {r.status === "active" && (isAdmin || r.user_id === currentUser.id) && (
-                    <button className="btn btn-teardown" onClick={() => teardown(r.id)}><FaTrashAlt /> Teardown</button>
-                  )}
-                </td>
-              </tr>
+              <Fragment key={r.id}>
+                <tr className={isOpen ? "expanded" : ""}>
+                  <td>
+                    {isOwnerOrAdmin && (
+                      <span className="row-toggle" onClick={() => toggleConsole(r.id)} style={{ marginRight: 6 }}>
+                        {isOpen ? <FaChevronDown /> : <FaChevronRight />}
+                      </span>
+                    )}
+                    #{r.id}
+                  </td>
+                  <td>{r.requester_name}</td>
+                  <td>
+                    <span className="resource-tag">
+                      <span className="r-icon"><Icon /></span> {r.resource_type.toUpperCase()}
+                    </span>
+                  </td>
+                  <td><StatusBadge status={r.status} /></td>
+                  <td>{formatDateTime(r.created_at)}</td>
+                  <td>
+                    {r.status === "pending" && isAdmin &&(
+                      <>
+                        <button className="btn btn-approve" onClick={() => approve(r.id)}><FaCheck /> Approve</button>
+                        <button className="btn btn-reject" onClick={() => reject(r.id)}><FaTimes /> Reject</button>
+                      </>
+                    )}
+                    {r.status === "active" && (isAdmin || r.user_id === currentUser.id) && (
+                      <button className="btn btn-teardown" onClick={() => teardown(r.id)}><FaTrashAlt /> Teardown</button>
+                    )}
+                    {isOwnerOrAdmin && (
+                      <button className="btn btn-teardown" onClick={() => toggleConsole(r.id)}><FaTerminal /> Track</button>
+                    )}
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr key={`${r.id}-console`}>
+                    <td colSpan={6} style={{ padding: "0 12px 14px" }}>
+                      <RequestTracker request={r} orgAdmins={orgAdmins} />
+                      {showConsole && <RequestConsole requestId={r.id} status={r.status} />}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>

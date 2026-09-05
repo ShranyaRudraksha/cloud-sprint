@@ -7,6 +7,7 @@ import Sidebar from "./components/Sidebar";
 import StatsBar from "./components/StatsBar";
 import RequestForm from "./components/RequestForm";
 import RequestList from "./components/RequestList";
+import ThemeToggle from "./components/ThemeToggle";
 import { getRequests } from "./api/requests";
 
 function Dashboard() {
@@ -67,6 +68,7 @@ function AuthGate() {
 export default function App() {
   return (
     <AuthProvider>
+      <ThemeToggle />
       <AuthGate />
     </AuthProvider>
   );

@@ -14,3 +14,7 @@ export const decideRequest = (id, decision, approver_name, remarks) =>
   api.patch(`/requests/${id}/decision`, { decision, approver_name, remarks }).then(r => r.data);
 export const teardownRequest = (id, actor) =>
   api.post(`/requests/${id}/teardown`, { actor }).then(r => r.data);
+export const getRequestLogs = (id) =>
+  api.get(`/requests/${id}/logs`).then(r => r.data);
+export const getOrgAdmins = () =>
+  api.get(`/requests/org-admins`).then(r => r.data);

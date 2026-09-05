@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { provisionResource, destroyResource } = require("../services/terraformService");
+const { provisionResource, destroyResource, logStore } = require("../services/terraformService");
 const { requireAuth, requireAdmin } = require("../middleware/auth");
 // Create a new request (status: pending)
 async function createRequest(req, res) {
@@ -81,9 +81,17 @@ async function getRequests(req, res) {
   try {
     const isAdmin = req.user.role === "admin";
     const result = await pool.query(
-      `SELECT r.*, i.resource_id, i.resource_details, i.status AS inventory_status
+      `SELECT r.*, i.resource_id, i.resource_details, i.status AS inventory_status,
+              la.approver_name AS approval_approver, la.decision AS approval_decision, la.remarks AS approval_remarks
        FROM requests r
        LEFT JOIN inventory i ON i.request_id = r.id
+       LEFT JOIN LATERAL (
+         SELECT approver_name, decision, remarks
+         FROM approvals ap
+         WHERE ap.request_id = r.id
+         ORDER BY decided_at DESC
+         LIMIT 1
+       ) la ON true
        WHERE r.org_id = $1 AND ($2 OR r.user_id = $3)
        ORDER BY r.created_at DESC`,
       [req.user.org_id, isAdmin, req.user.id]
@@ -217,7 +225,42 @@ async function getMyResources(req, res) {
   }
 }
 
-module.exports = { createRequest, getRequests, decideRequest, teardownRequest, getMyResources };
+async function getRequestLogs(req, res) {
+  const { id } = req.params;
+
+  try {
+    const requestResult = await pool.query(`SELECT * FROM requests WHERE id = $1`, [id]);
+    const request = requestResult.rows[0];
+    if (!request) return res.status(404).json({ error: "Request not found" });
+
+    if (request.org_id !== req.user.org_id) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+    if (req.user.role !== "admin" && request.user_id !== req.user.id) {
+      return res.status(403).json({ error: "Not authorized to view these logs" });
+    }
+
+    res.json({ logs: logStore.get(request.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch logs" });
+  }
+}
+
+async function getOrgAdmins(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT name, email FROM users WHERE org_id = $1 AND role = 'admin' ORDER BY name`,
+      [req.user.org_id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch organization admins" });
+  }
+}
+
+module.exports = { createRequest, getRequests, decideRequest, teardownRequest, getMyResources, getRequestLogs, getOrgAdmins };
 
 
 

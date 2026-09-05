@@ -1,13 +1,14 @@
 // src/components/RequestForm.jsx
 import { useAuth } from "../context/AuthContext";
 import { useState } from "react";
-import { FaServer, FaBoxOpen, FaUserShield, FaPaperPlane, FaUser, FaInfoCircle } from "react-icons/fa";
+import { FaServer, FaBoxOpen, FaUserShield, FaPaperPlane, FaUser, FaInfoCircle, FaNetworkWired } from "react-icons/fa";
 import { createRequest } from "../api/requests";
 
 const TYPES = [
   { key: "ec2", label: "EC2 Instance", icon: FaServer, eta: "~60-90 sec", note: "A live server you can SSH into." },
   { key: "s3", label: "S3 Bucket", icon: FaBoxOpen, eta: "~10-20 sec", note: "Versioned, private by default." },
   { key: "iam", label: "IAM User", icon: FaUserShield, eta: "~5-10 sec", note: "Scoped access, no console login." },
+  { key: "vpc", label: "VPC Network", icon: FaNetworkWired, eta: "~30-45 sec", note: "Isolated network with a public subnet." },
 ];
 
 const FIELDS = {
@@ -16,6 +17,11 @@ const FIELDS = {
   iam: [
     { key: "iam_user_name", label: "IAM User Name", default: "" },
     { key: "iam_policy_arn", label: "Policy ARN", default: "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess" },
+  ],
+  vpc: [
+    { key: "vpc_cidr", label: "VPC CIDR", default: "10.0.0.0/16" },
+    { key: "subnet_cidr", label: "Subnet CIDR", default: "10.0.1.0/24" },
+    { key: "availability_zone", label: "Availability Zone", default: "ap-south-1a" },
   ],
 };
 
