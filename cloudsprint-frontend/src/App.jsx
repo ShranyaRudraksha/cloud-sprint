@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { FaListUl, FaPlusCircle, FaSignOutAlt } from "react-icons/fa";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Sidebar from "./components/Sidebar";
@@ -57,12 +58,15 @@ function Dashboard() {
 
 function AuthGate() {
   const { user } = useAuth();
-  const [screen, setScreen] = useState("login");
+  const [screen, setScreen] = useState("landing");
 
   if (user) return <Dashboard />;
+  if (screen === "landing") {
+    return <Landing onLogin={() => setScreen("login")} onRegister={() => setScreen("register")} />;
+  }
   return screen === "login"
-    ? <Login goToRegister={() => setScreen("register")} />
-    : <Register goToLogin={() => setScreen("login")} />;
+    ? <Login goToRegister={() => setScreen("register")} goHome={() => setScreen("landing")} />
+    : <Register goToLogin={() => setScreen("login")} goHome={() => setScreen("landing")} />;
 }
 
 export default function App() {
