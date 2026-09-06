@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FaCloud, FaEnvelope, FaLock } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
-export default function Login({ goToRegister }) {
+export default function Login({ goToRegister, goHome }) {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +24,7 @@ export default function Login({ goToRegister }) {
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <div className="auth-brand"><FaCloud /></div>
+        <div className="auth-brand" onClick={goHome} style={{ cursor: "pointer" }}><FaCloud /></div>
         <h2>Welcome back</h2>
         <p className="auth-sub">Sign in to your organization's provisioning portal</p>
 

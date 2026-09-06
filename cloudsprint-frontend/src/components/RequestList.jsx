@@ -4,6 +4,7 @@ import { decideRequest, teardownRequest, getOrgAdmins } from "../api/requests";
 import StatusBadge from "./StatusBadge";
 import RequestConsole from "./RequestConsole";
 import RequestTracker from "./RequestTracker";
+import RejectModal from "./RejectModal";
 import { formatDateTime } from "../utils/formatDate";
 
 const TYPE_ICON = { ec2: FaServer, s3: FaBoxOpen, iam: FaUserShield, vpc: FaNetworkWired };
@@ -12,13 +13,14 @@ const HAS_CONSOLE_OUTPUT = ["provisioning", "active", "failed", "destroying", "d
 export default function RequestList({ requests, onChanged, isAdmin, currentUser }) {
   const [expanded, setExpanded] = useState(new Set());
   const [orgAdmins, setOrgAdmins] = useState([]);
+  const [rejectTarget, setRejectTarget] = useState(null);
 
   useEffect(() => { getOrgAdmins().then(setOrgAdmins).catch(() => {}); }, []);
 
   const approve = async (id) => { await decideRequest(id, "approved", currentUser.name); onChanged(); };
-  const reject = async (id) => {
-    const remarks = window.prompt("Reason for rejection (the requester will see this):", "") || "No reason provided";
-    await decideRequest(id, "rejected", currentUser.name, remarks);
+  const confirmReject = async (reason) => {
+    await decideRequest(rejectTarget.id, "rejected", currentUser.name, reason);
+    setRejectTarget(null);
     onChanged();
   };
   const teardown = async (id) => { await teardownRequest(id, currentUser.name); onChanged(); };
@@ -76,7 +78,7 @@ export default function RequestList({ requests, onChanged, isAdmin, currentUser 
                     {r.status === "pending" && isAdmin &&(
                       <>
                         <button className="btn btn-approve" onClick={() => approve(r.id)}><FaCheck /> Approve</button>
-                        <button className="btn btn-reject" onClick={() => reject(r.id)}><FaTimes /> Reject</button>
+                        <button className="btn btn-reject" onClick={() => setRejectTarget(r)}><FaTimes /> Reject</button>
                       </>
                     )}
                     {r.status === "active" && (isAdmin || r.user_id === currentUser.id) && (
@@ -100,6 +102,13 @@ export default function RequestList({ requests, onChanged, isAdmin, currentUser 
           })}
         </tbody>
       </table>
+
+      <RejectModal
+        open={rejectTarget !== null}
+        requestLabel={rejectTarget ? `#${rejectTarget.id} · ${rejectTarget.resource_type.toUpperCase()} · ${rejectTarget.requester_name}` : ""}
+        onCancel={() => setRejectTarget(null)}
+        onConfirm={confirmReject}
+      />
     </div>
   );
 }
