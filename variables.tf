@@ -59,3 +59,9 @@ variable "availability_zone" {
   type        = string
   default     = "ap-south-1a"
 }
+
+variable "resource_name" {
+  description = "Base identifier for Name tags, set by the backend as <requester>_<project>_<request-id>"
+  type        = string
+  default     = "provisioning-platform"
+}

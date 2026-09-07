@@ -10,7 +10,7 @@ const TF_DIR = process.env.TERRAFORM_DIR;
 // Which Terraform resources to target, per catalog item
 const RESOURCE_TARGETS = {
   ec2: ["aws_instance.app_server", "aws_security_group.basic_sg"],
-  s3: ["aws_s3_bucket.app_bucket", "aws_s3_bucket_versioning.app_bucket_versioning", "aws_s3_bucket_public_access_block.app_bucket_block"],
+  s3: ["aws_s3_bucket.app_bucket", "aws_s3_bucket_versioning.app_bucket_versioning", "aws_s3_bucket_public_access_block.app_bucket_block", "aws_s3_bucket_cors_configuration.app_bucket_cors"],
   iam: ["aws_iam_user.app_user", "aws_iam_user_policy_attachment.app_user_policy"],
   vpc: ["aws_vpc.app_vpc", "aws_subnet.app_subnet", "aws_internet_gateway.app_igw", "aws_route_table.app_rt", "aws_route_table_association.app_rta"],
 };
@@ -31,12 +31,28 @@ const RELEVANT_OUTPUTS = {
   vpc: ["vpc_id", "subnet_id"],
 };
 
-function buildArgs(action, resource_type, parameters) {
+// AWS tag values allow most characters, but keep this readable and
+// consistent: spaces/punctuation in the requester's name become hyphens.
+function slugify(str) {
+  return String(str).trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9_-]/g, "") || "user";
+}
+
+// <requester>_<project>_<request-id> — so resources from different users/
+// requests are distinguishable in the AWS console instead of every EC2
+// instance, bucket, etc. showing up under the same generic Name tag.
+function buildResourceName(request) {
+  return `${slugify(request.requester_name)}_CloudSprint_${request.id}`;
+}
+
+function buildArgs(action, request) {
+  const { resource_type, parameters } = request;
   const targets = RESOURCE_TARGETS[resource_type];
   if (!targets) throw new Error(`Unknown resource_type: ${resource_type}`);
 
   const args = [action, "-auto-approve", "-no-color"];
   targets.forEach(t => args.push(`-target=${t}`));
+
+  args.push("-var", `resource_name=${buildResourceName(request)}`);
 
   (ALLOWED_VARS[resource_type] || [])
     .filter(key => parameters[key] !== undefined)
@@ -99,13 +115,12 @@ function getOutputsJson() {
   });
 }
 
-async function provisionResource(request) {
-  const { id: requestId, resource_type, parameters } = request;
+async function doProvision(request) {
+  const { id: requestId, resource_type } = request;
 
-  logStore.clear(requestId);
   logStore.append(requestId, `Provisioning ${resource_type} for request #${requestId}...`);
 
-  const args = buildArgs("apply", resource_type, parameters);
+  const args = buildArgs("apply", request);
   await runTerraform(requestId, args);
 
   logStore.append(requestId, "Reading resource outputs...");
@@ -122,17 +137,46 @@ async function provisionResource(request) {
   return { resource_id: resourceId, resource_details: details };
 }
 
-async function destroyResource(request) {
-  const { id: requestId, resource_type, parameters } = request;
+async function doDestroy(request) {
+  const { id: requestId, resource_type } = request;
 
-  logStore.clear(requestId);
   logStore.append(requestId, `Tearing down ${resource_type} for request #${requestId}...`);
 
-  const args = buildArgs("destroy", resource_type, parameters);
+  const args = buildArgs("destroy", request);
   await runTerraform(requestId, args);
 
   logStore.append(requestId, "Done. Resource destroyed.");
   return { destroyed: true };
+}
+
+// Terraform state here is a single local file with no remote lock backend
+// (see provider.tf — no `backend` block). Two `terraform apply`/`destroy`
+// processes touching it at once means the second one fails immediately with
+// "Error acquiring the state lock" instead of queueing. Serialize every
+// provision/destroy through this in-process queue so only one `terraform`
+// process ever runs against this state directory at a time — later requests
+// wait their turn instead of racing and failing.
+let queueTail = Promise.resolve();
+let pending = 0;
+
+function runExclusive(requestId, fn) {
+  pending += 1;
+  if (pending > 1) {
+    logStore.append(requestId, `Waiting for another Terraform operation to finish (queue position ${pending - 1})...`);
+  }
+  const run = queueTail.then(fn, fn);
+  queueTail = run.catch(() => {});
+  return run.finally(() => { pending -= 1; });
+}
+
+async function provisionResource(request) {
+  logStore.clear(request.id);
+  return runExclusive(request.id, () => doProvision(request));
+}
+
+async function destroyResource(request) {
+  logStore.clear(request.id);
+  return runExclusive(request.id, () => doDestroy(request));
 }
 
 module.exports = { provisionResource, destroyResource, logStore };

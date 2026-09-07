@@ -18,3 +18,5 @@ export const getRequestLogs = (id) =>
   api.get(`/requests/${id}/logs`).then(r => r.data);
 export const getOrgAdmins = () =>
   api.get(`/requests/org-admins`).then(r => r.data);
+export const getMyResources = () =>
+  api.get(`/requests/my-resources`).then(r => r.data);

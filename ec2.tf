@@ -18,7 +18,7 @@ resource "aws_security_group" "basic_sg" {
   }
 
   tags = {
-    Name = "basic-ec2-sg"
+    Name = "${var.resource_name}-sg"
   }
 }
 
@@ -29,7 +29,7 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.basic_sg.id]
 
   tags = {
-    Name    = "provisioning-platform-ec2"
+    Name    = "${var.resource_name}-ec2"
     Project = "CloudSprint"
   }
 }

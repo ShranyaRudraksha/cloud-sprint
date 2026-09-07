@@ -4,7 +4,7 @@ resource "aws_vpc" "app_vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    Name    = "provisioning-platform-vpc"
+    Name    = "${var.resource_name}-vpc"
     Project = "CloudSprint"
   }
 }
@@ -16,7 +16,7 @@ resource "aws_subnet" "app_subnet" {
   map_public_ip_on_launch  = true
 
   tags = {
-    Name    = "provisioning-platform-subnet"
+    Name    = "${var.resource_name}-subnet"
     Project = "CloudSprint"
   }
 }
@@ -25,7 +25,7 @@ resource "aws_internet_gateway" "app_igw" {
   vpc_id = aws_vpc.app_vpc.id
 
   tags = {
-    Name    = "provisioning-platform-igw"
+    Name    = "${var.resource_name}-igw"
     Project = "CloudSprint"
   }
 }
@@ -39,7 +39,7 @@ resource "aws_route_table" "app_rt" {
   }
 
   tags = {
-    Name    = "provisioning-platform-rt"
+    Name    = "${var.resource_name}-rt"
     Project = "CloudSprint"
   }
 }
